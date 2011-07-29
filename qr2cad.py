@@ -22,7 +22,7 @@ def get_image_data(url):
 	im = Image.open(StringIO(data))
 	return [list(im.getdata()), im.size[0], im.size[1]]
 
-def create_matrix(data, zheight, width):
+def create_matrix(data, width):
 	white = 255*len(data[0])
 	matrix = []
 	line = []
@@ -34,21 +34,33 @@ def create_matrix(data, zheight, width):
 			i += width*3
 			line = []
 		if mod > 0 and mod < width-1:
-			line.append(0 if sum(data[i]) == white else zheight)
+			line.append(0 if sum(data[i]) == white else 1)
 			i += 4
 		else:
 			i += 1
 
 	return matrix
 
-def create_scad(matrix, filename, width, height, maxdim, dxf):
+def create_scad(matrix, filename, width, height, zheight, maxdim, dxf):
 	if width > height:
 		scale = [float(maxdim)/width, (maxdim*float(height)/width)/height, 1]
 	else:
 		scale = [(maxdim*float(width)/height)/width, float(maxdim)/height, 1]
 	f = open(filename, 'w')
-	f.write('message = %s;' % (repr(matrix)))
-	f.write(display_matrix_core(len(matrix[0]), len(matrix), dxf))
+	f.write("""
+2d = %s;
+fudge = 0.01;
+block_z = %i;
+block_size = 2;
+matrix_rows = %i;
+matrix_cols = %i;
+""" % ('true' if dxf else 'false', zheight, height, width))
+	# Format the matrix nicely
+	f.write('\nmatrix = [\n')
+	for line in matrix:
+		f.write('%s,\n' % (repr(line)))
+	f.write('];')
+	f.write(display_matrix_core())
 	f.close()
 	print 'SCAD file is '+filename
 
@@ -68,44 +80,41 @@ def make_scad(dxf, scadfilename):
 
 def display_matrix_core(width, height, dxf):
 	return """
-message_cols = %s;
-message_rows = %s;
-fudge = 0.01;
-block_width = 2;
-block_z = 1;
+module block(bit, x, y, z, 2d) {
+	if(2d) {
+		square([x, y]);
+	}
+	else {
+		cube([x, y, z*bit]);
+	}	
+}
 
-xy = block_width;
-xy1 = block_width-fudge;
-xy2 = block_width-fudge*2;
-
-translate([-block_width*message_cols/2, block_width*message_rows/2, 0]) {
-	%s
+translate([-block_size*matrix_cols/2, block_size*matrix_rows/2, 0]) {
+	if( ! 2d) {
+		translate([0, -block_size*(matrix_rows-1), 0]) {
+			cube([block_size*matrix_cols, block_size*matrix_rows, 1]);
+		}
+	}
 	translate([0, 0, 1]) {
-		for(i = [1 : message_rows-2]) {
-			for(j = [1 : message_cols-2]) {
-				if(message[i][j] != 0) {
-					// If connected only by a corner to the block to the lower-left
-					if(message[i][j-1] == 0 && message[i+1][j] == 0 && message[i+1][j-1] > 0) {
-						translate([block_width*j+fudge, -block_width*i+fudge, 0]) {
-							// Also corner-connected to the block to the lower-right
-							if(message[i][j+1] == 0 && message[i+1][j+1] > 0) {
-								%s([xy2, xy1%s]);
-							}
-							else {
-								%s([xy1, xy1%s]);
-							}
+		for(i = [0 : matrix_rows-1]) {
+			for(j = [0 : matrix_cols-1]) {
+				if(matrix[i][j] != 0) {
+					translate([block_size*j, -block_size*i, 0]) {
+						if(i == 0 && j == matrix_cols-1) {
+							// Draw the top right corner block normal size
+							block(matrix[i][j], block_size, block_size, block_z, 2d);
 						}
-					}
-					// if connected only by a corner to the block to the lower-right
-					else if(message[i+1][j] == 0 && message[i][j+1] == 0 && message[i+1][j+1] > 0) {
-						translate([block_width*j, -block_width*i+fudge, 0]) {
-							%s([xy1, xy1%s]);
+						else if(i == 0) {
+							// Draw blocks on the top row with a x fudge factor added
+							block(matrix[i][j], block_size+fudge, block_size, block_z, 2d);
 						}
-					}
-					else {
-						// This is just your average block
-						translate([block_width*j, -block_width*i, 0]) {
-							%s([xy+fudge/2, xy+fudge/2%s]);
+						else if(j == matrix_cols-1) {
+							// Draw blocks on the right column with a y fudge factor added
+							block(matrix[i][j], block_size, block_size+fudge, block_z, 2d);
+						}
+						else {
+							// For blocks that aren't on the edge, add a fudge factor so they are connected to other blocks
+							block(matrix[i][j], block_size+fudge, block_size+fudge, block_z, 2d);
 						}
 					}
 				}
@@ -113,22 +122,7 @@ translate([-block_width*message_cols/2, block_width*message_rows/2, 0]) {
 		}
 	}
 }
-""" %	(
-		width,
-		height,
-	"""translate([0, -block_width*(message_rows-1), 0]) {
-		cube([block_width*message_cols, block_width*message_rows, 1]);
-	}
-	""" if not dxf else "",
-		'square' if dxf else 'cube',
-		'' if dxf else ', block_z*message[i][j]',
-		'square' if dxf else 'cube',
-		'' if dxf else ', block_z*message[i][j]',
-		'square' if dxf else 'cube',
-		'' if dxf else ', block_z*message[i][j]',
-		'square' if dxf else 'cube',
-		'' if dxf else ', block_z*message[i][j]'
-	)
+"""
 
 if __name__ == '__main__':
 	args = get_args()
@@ -138,7 +132,7 @@ if __name__ == '__main__':
 	[data, width, height] = get_image_data(args.url)
 
 	# Outputs a matrix that OpenSCAD can use
-	matrix = create_matrix(data, args.zheight, width)
+	matrix = create_matrix(data, width)
 
 	# Outputs a .scad file that can be used to create a .stl or .dxf file
 	create_scad(matrix, filename, width, height, args.maxdim, args.dxf)
