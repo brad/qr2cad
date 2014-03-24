@@ -20,10 +20,22 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 from argparse import ArgumentParser
 from PIL import Image
-from StringIO import StringIO
-from urllib import urlopen
 import os
 import subprocess
+
+try:
+    # Python 3.x
+    from io import BytesIO
+except ImportError:
+    # Python 2.x
+    from StringIO import StringIO as BytesIO
+
+try: # Python 3.x
+    from urllib.request import urlopen
+except ImportError:
+    # Python 2.x
+    from urllib import urlopen
+
 
 def get_args():
 	parser = ArgumentParser(description='Convert qr codes to CAD objects')
@@ -37,7 +49,7 @@ def get_args():
 def get_image_data(url):
 	chart_url = 'http://chart.apis.google.com/chart?chs=150x150&cht=qr&chl=%s&choe=ISO-8859-1' % (url)
 	data = urlopen(chart_url).read()
-	im = Image.open(StringIO(data))
+	im = Image.open(BytesIO(data))
 	return [list(im.getdata()), im.size[0], im.size[1]]
 
 def create_matrix(data, width):
@@ -82,7 +94,7 @@ matrix_cols = %i;
 	f.write('];')
 	f.write(display_matrix_core(scale))
 	f.close()
-	print 'SCAD file is '+filename
+	print('SCAD file is ' + filename)
 
 def make_scad(dxf, scadfilename):
 	openscadexec = 'openscad'
@@ -92,11 +104,13 @@ def make_scad(dxf, scadfilename):
 		openscadexec = windows
 	elif os.path.exists(mac):
 		openscadexec = mac
-	outfilename = 'qr2cad.%s' % ('dxf' if dxf else 'stl')
-	command = [openscadexec, '-m', 'make', '-x' if dxf else '-s', outfilename, scadfilename]
-	print 'Exporting to %s' % ('DXF' if dxf else 'STL')
+	file_type = 'DXF' if dxf else 'STL'
+	outfilename = 'qr2cad.%s' % file_type.lower()
+	command = [openscadexec, '-m', 'make', '-x' if dxf else '-s', outfilename,
+	           scadfilename]
+	print('Exporting to %s' % file_type)
 	subprocess.call(command)
-	print '%s file is %s' % ('DXF' if dxf else 'STL', outfilename)
+	print('%s file is %s' % (file_type, outfilename))
 
 def display_matrix_core(scale):
 	return """
