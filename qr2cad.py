@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 u"""
-Copyright (C) 2011 Brad Pitcher, bradpitcher@gmail.com
+Copyright (C) 2011-2014 Brad Pitcher <bradpitcher@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
