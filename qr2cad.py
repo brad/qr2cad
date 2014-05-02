@@ -18,12 +18,15 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+import os
+import qrcode
+import subprocess
+
 from argparse import ArgumentParser
 from PIL import Image
 from StringIO import StringIO
 from urllib import urlopen
-import os
-import subprocess
+
 
 def get_args():
 	parser = ArgumentParser(description='Convert qr codes to CAD objects')
@@ -34,14 +37,21 @@ def get_args():
 	parser.add_argument('-z', dest='zheight', type=int, default=5, help='The max z-height of the text, defaults to 5. Not relevant for .dxf files')
 	return parser.parse_args()
 
-def get_image_data(url):
-	chart_url = 'http://chart.apis.google.com/chart?chs=150x150&cht=qr&chl=%s&choe=ISO-8859-1' % (url)
-	data = urlopen(chart_url).read()
-	im = Image.open(StringIO(data))
-	return [list(im.getdata()), im.size[0], im.size[1]]
+def get_image_data(data):
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    im = qr.make_image()
+    return [list(im.getdata()), im.size[0], im.size[1]]
 
 def create_matrix(data, width):
-	white = 255*len(data[0])
+	white = 255
 	matrix = []
 	line = []
 	i = width
@@ -52,7 +62,7 @@ def create_matrix(data, width):
 			i += width*3
 			line = []
 		if mod > 0 and mod < width-1:
-			line.append(0 if sum(data[i]) == white else 1)
+			line.append(0 if data[i] == white else 1)
 			i += 4
 		else:
 			i += 1
