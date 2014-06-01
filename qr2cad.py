@@ -25,7 +25,6 @@ import subprocess
 from argparse import ArgumentParser
 from PIL import Image
 from StringIO import StringIO
-from urllib import urlopen
 
 
 def get_args():
