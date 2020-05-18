@@ -32,8 +32,8 @@ def get_args():
     parser.add_argument('content', metavar='CONTENT', type=str, help='The content you want to create a qr code for.')
     parser.add_argument('-x', dest='dxf', action='store_const', const=True, default=False, help='Defaults to .stl by default, this option changes output to .dxf')
     parser.add_argument('-m', dest='make', action='store_const', const=True, default=False, help='Outputs qr2cad.scad by default, this options makes the result into a .dxf or .stl')
-    parser.add_argument('-d', dest='maxdim', type=int, default=74, help='The maximum size in mm to make the x or y dimension.')
-    parser.add_argument('-z', dest='zheight', type=int, default=5, help='The max z-height of the text, defaults to 5. Not relevant for .dxf files')
+    parser.add_argument('-d', dest='maxdim', type=float, default=74, help='The maximum size in mm to make the x or y dimension.')
+    parser.add_argument('-z', dest='zheight', type=float, default=5, help='The max z-height of the text, defaults to 5. Not relevant for .dxf files')
     return parser.parse_args()
 
 def get_image_data(data):
